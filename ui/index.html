@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outpost Launcher</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="mods.css">
+</head>
+<body>
+  <nav class="rail">
+    <div class="rail-top">
+      <div class="brand-tile" title="Outpost Launcher">OL</div>
+      <button data-page="server" class="active" title="Server">
+        <svg viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+      </button>
+      <button data-page="profiles" title="Profiles">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </button>
+      <button data-page="mods" title="Mods">
+        <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
+      </button>
+    </div>
+    <div class="rail-bottom">
+      <button data-page="settings" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+      </button>
+      <button data-page="info" title="Info">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Server -->
+    <section class="page" id="page-server">
+      <header class="page-head">
+        <div>
+          <h1>Server</h1>
+          <p class="muted">Start the SPT server here; its console appears below.</p>
+        </div>
+      </header>
+      <div class="card server-card">
+        <div class="card-row">
+          <div>
+            <div class="card-meta">SPT server</div>
+            <div class="mono" id="srv-address">-</div>
+          </div>
+          <span class="status" id="srv-status"><span class="dot"></span><span class="label">Checking</span></span>
+        </div>
+        <div class="card-row actions">
+          <span class="muted small" id="srv-note"></span>
+          <div class="btns">
+            <button class="btn" id="btn-stop" disabled>Stop</button>
+            <button class="btn primary" id="btn-start" disabled>Start server</button>
+          </div>
+        </div>
+      </div>
+      <div class="card console-card">
+        <div class="card-row">
+          <div class="card-meta">Console</div>
+          <label class="small muted"><input type="checkbox" id="autoscroll" checked> Follow</label>
+        </div>
+        <div class="console mono" id="console"><div class="muted">No output yet. Output is shown only for a server started from this launcher.</div></div>
+      </div>
+    </section>
+
+    <!-- Profiles -->
+    <section class="page" id="page-profiles" hidden>
+      <header class="page-head">
+        <div>
+          <h1>Profiles</h1>
+          <p class="muted">Pick a profile and press Play.</p>
+        </div>
+        <button class="btn" id="btn-refresh">Refresh</button>
+      </header>
+      <div class="profiles" id="profiles"></div>
+      <div class="playbar card" id="playbar" hidden>
+        <div>
+          <div class="card-meta">Selected</div>
+          <div id="play-name">-</div>
+        </div>
+        <button class="btn primary big" id="btn-play">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play
+        </button>
+      </div>
+    </section>
+
+    <!-- Mods -->
+    <section class="page forge" id="page-mods" hidden>
+      <header class="page-head">
+        <div>
+          <h1>Mods</h1>
+          <p class="muted">From The Forge (sp-mod.com). Downloads come from each author's own host.</p>
+        </div>
+        <div class="f-tabs">
+          <button data-tab="browse" class="active">Browse</button>
+          <button data-tab="installed">Installed <span class="f-badge warn" id="inst-badge" title="Missing dependencies" hidden></span></button>
+          <button data-tab="updates">Updates <span class="f-badge" id="upd-badge" hidden></span></button>
+        </div>
+      </header>
+
+      <div class="f-layout" id="tab-browse">
+        <aside class="f-filters">
+          <input type="search" id="f-query" placeholder="Search mods" spellcheck="false">
+          <label class="f-field"><span>Sort by</span>
+            <select id="f-sort">
+              <option value="-downloads">Most downloaded</option>
+              <option value="-updated_at">Recently updated</option>
+              <option value="-published_at">Newest</option>
+              <option value="-favourites_count">Most favourited</option>
+              <option value="-endorsements_count">Most endorsed</option>
+              <option value="name">Name A-Z</option>
+            </select>
+          </label>
+          <label class="f-field"><span>SPT version</span><select id="f-spt"></select></label>
+          <div class="f-checks">
+            <label><input type="checkbox" id="f-hide-installed"> Hide installed</label>
+            <label><input type="checkbox" id="f-featured"> Featured only</label>
+            <label><input type="checkbox" id="f-fika"> Fika compatible</label>
+            <label><input type="checkbox" id="f-legacy"> Include legacy mods</label>
+          </div>
+          <div class="f-field"><span>Category</span><div class="f-cats" id="f-cats"></div></div>
+        </aside>
+        <div class="f-results">
+          <div class="f-bar">
+            <div class="f-count muted small" id="f-count"></div>
+            <div class="f-view" id="f-view">
+              <button data-view="cards" class="active" title="Cards">Cards</button>
+              <button data-view="compact" title="Compact grid">Compact</button>
+            </div>
+          </div>
+          <div class="f-grid" id="f-grid"></div>
+          <div class="f-pager" id="f-pager"></div>
+        </div>
+      </div>
+
+      <div id="tab-detail" hidden></div>
+
+      <div id="tab-installed" hidden>
+        <div class="f-bar"><span class="muted small" id="inst-summary"></span><button class="btn" id="btn-rescan">Rescan</button></div>
+        <div class="f-list" id="inst-list"></div>
+      </div>
+
+      <div id="tab-updates" hidden>
+        <div class="f-bar">
+          <span class="muted small" id="upd-summary">Press "Check for updates" to compare your mods with The Forge.</span>
+          <div class="btns">
+            <button class="btn" id="btn-check-updates">Check for updates</button>
+            <button class="btn primary" id="btn-update-all" disabled>Update all</button>
+          </div>
+        </div>
+        <div class="f-list" id="upd-list"></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="page" id="page-settings" hidden>
+      <header class="page-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="muted">Saved to this launcher's own settings file.</p>
+        </div>
+      </header>
+      <div class="card form">
+        <label class="field">
+          <span class="card-meta">SPT folder</span>
+          <input type="text" id="set-path" class="mono" spellcheck="false" placeholder="C:\Single Player Tarkov">
+          <span class="small muted">The folder with EscapeFromTarkov.exe and SPT_Runtime. Never the Steam Tarkov folder.</span>
+        </label>
+        <label class="switch-row">
+          <input type="checkbox" id="set-minimize">
+          <span>Minimize the launcher when the game starts</span>
+        </label>
+        <div class="btns right"><button class="btn primary" id="btn-save">Save</button></div>
+      </div>
+    </section>
+
+    <!-- Info -->
+    <section class="page" id="page-info" hidden>
+      <header class="page-head">
+        <div>
+          <h1>Info</h1>
+          <p class="muted">Outpost Launcher 0.1.0</p>
+        </div>
+      </header>
+      <div class="card prose">
+        <p>An alternative launcher for SPT 4.1.6. It starts the game the same way as the official SPT launcher: log in, version check,
+        file cleanup, mod bundle sync, then the game with the same arguments.</p>
+        <p class="muted">Unofficial. Not made by or affiliated with the SPT team or Battlestate Games. It only works with an SPT folder and never touches live Escape from Tarkov.</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="launch-overlay" hidden>
+    <div class="card dialog">
+      <div class="spinner"></div>
+      <div class="card-meta">Launching</div>
+      <div id="launch-step">Starting</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ask" hidden>
+    <div class="card dialog">
+      <h2 id="ask-title"></h2>
+      <p class="muted" id="ask-text"></p>
+      <div class="btns right">
+        <button class="btn" id="ask-no">Cancel</button>
+        <button class="btn danger" id="ask-yes">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="install-dlg" hidden>
+    <div class="card dialog wide">
+      <h2 id="inst-title">Install</h2>
+      <div class="inst-items" id="inst-items"></div>
+      <p class="muted small" id="inst-note"></p>
+      <div class="btns right">
+        <button class="btn" id="inst-cancel">Cancel</button>
+        <button class="btn primary" id="inst-go">Install</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="mod-overlay" hidden>
+    <div class="card dialog">
+      <div class="spinner"></div>
+      <div class="card-meta">Mods</div>
+      <div id="mod-step">Working</div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <script src="app.js"></script>
+  <script src="mods.js"></script>
+</body>
+</html>

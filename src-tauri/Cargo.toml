@@ -1,0 +1,23 @@
+[package]
+name = "outpost-launcher"
+version = "0.1.0"
+description = "SPT launcher with built-in server control, profiles and (later) a mod browser"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+flate2 = "1"
+crc32fast = "1"
+tokio = { version = "1", features = ["process", "io-util", "fs", "time"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+sevenz-rust = "0.6"
+
+[profile.release]
+strip = true
+lto = "thin"
