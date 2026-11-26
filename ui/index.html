@@ -22,6 +22,7 @@
       </button>
     </div>
     <div class="rail-bottom">
+      <button id="rail-profile" class="rail-profile" title="Switch profile"><span id="rail-profile-tile">?</span></button>
       <button data-page="settings" title="Settings">
         <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
       </button>
@@ -70,11 +71,17 @@
       <header class="page-head">
         <div>
           <h1>Profiles</h1>
-          <p class="muted">Pick a profile and press Play.</p>
+          <p class="muted">Pick a profile to preview it, then press Play.</p>
         </div>
-        <button class="btn" id="btn-refresh">Refresh</button>
+        <div class="btns">
+          <button class="btn" id="btn-refresh">Refresh</button>
+          <button class="btn primary" id="btn-new-profile">Create profile</button>
+        </div>
       </header>
-      <div class="profiles" id="profiles"></div>
+      <div class="profiles-layout">
+        <div class="profiles" id="profiles"></div>
+        <div class="profile-detail" id="profile-detail"></div>
+      </div>
       <div class="playbar card" id="playbar" hidden>
         <div>
           <div class="card-meta">Selected</div>
@@ -185,7 +192,7 @@
       <header class="page-head">
         <div>
           <h1>Info</h1>
-          <p class="muted">Outpost Launcher 0.1.1</p>
+          <p class="muted">Outpost Launcher 0.1.2</p>
         </div>
       </header>
       <div class="card prose">
@@ -211,6 +218,48 @@
       <div class="btns right">
         <button class="btn" id="ask-no">Cancel</button>
         <button class="btn danger" id="ask-yes">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flyout" id="profile-flyout" hidden></div>
+
+  <div class="overlay" id="create-dlg" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2>Create profile</h2>
+      <p class="muted small">Create a new profile on this server.</p>
+      <label class="field">
+        <span class="card-meta">Name</span>
+        <input type="text" id="cp-name" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Name used to log in">
+        <span class="small muted">The name used to log in to this server.</span>
+      </label>
+      <div class="field">
+        <span class="card-meta" id="cp-ed-label">Edition</span>
+        <div class="edition-list" id="cp-editions" role="listbox"></div>
+      </div>
+      <div class="btns right">
+        <button class="btn" id="cp-cancel">Cancel</button>
+        <button class="btn primary" id="cp-go" disabled>Create</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="wipe-dlg" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2>Wipe profile</h2>
+      <p class="muted small" id="wp-text"></p>
+      <div class="wipe-keep">
+        <div class="card-meta">The following will NOT be wiped</div>
+        <ul><li>Achievements</li><li>Prestige</li><li>Prestige rewards</li><li>Some account-level stats</li></ul>
+      </div>
+      <p class="muted small">A copy of the saved profile is made first, in <span class="mono">OutpostLauncher\backups\profiles</span>. Close the game before wiping.</p>
+      <label class="field">
+        <span class="card-meta" id="wp-label">Type the profile name to confirm</span>
+        <input type="text" id="wp-confirm" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="btns right">
+        <button class="btn" id="wp-cancel">Cancel</button>
+        <button class="btn danger" id="wp-go" disabled>Yes, wipe on next launch</button>
       </div>
     </div>
   </div>

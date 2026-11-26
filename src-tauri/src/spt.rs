@@ -87,6 +87,91 @@ pub async fn list_profiles(state: State<'_, AppState>) -> Result<Value, String> 
     Ok(r.response)
 }
 
+/// Editions a new profile can be created with: { "Standard": "description", ... }
+#[tauri::command]
+pub async fn profile_types(state: State<'_, AppState>) -> Result<Value, String> {
+    let (_, _, spt) = server_for(&state)?;
+    spt.get_value("/launcher/v2/types").await
+}
+
+fn clean_profile_name(n: &str) -> Result<String, String> {
+    let n = n.trim();
+    if n.is_empty() {
+        return Err("Enter a profile name.".into());
+    }
+    if n.chars().count() > 40 || n.chars().any(|c| c.is_control()) {
+        return Err("The profile name must be 1 to 40 characters.".into());
+    }
+    Ok(n.to_string())
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// Creates a profile on the running server (the same request SPT.Launcher's "Create new profile" sends).
+#[tauri::command]
+pub async fn profile_create(state: State<'_, AppState>, username: String, edition: String) -> Result<(), String> {
+    let name = clean_profile_name(&username)?;
+    if edition.trim().is_empty() {
+        return Err("Choose an edition.".into());
+    }
+    let (_, _, spt) = server_for(&state)?;
+    if !spt.ping().await {
+        return Err("The SPT server is not running.".into());
+    }
+    let r: Resp<bool> = spt.put("/launcher/v2/register", &json!({ "username": name, "edition": edition })).await?;
+    if !r.response {
+        return Err("The server did not create the profile. The name may already be taken, or that edition is not allowed.".into());
+    }
+    Ok(())
+}
+
+/// Marks a profile to be wiped the next time the game logs in to it (what "Wipe Profile" does in SPT.Launcher).
+/// The saved profile file is copied to OutpostLauncher\backups\profiles first; if that copy fails nothing is wiped.
+#[tauri::command]
+pub async fn profile_wipe(state: State<'_, AppState>, username: String) -> Result<String, String> {
+    let (game, _, spt) = server_for(&state)?;
+    if game_running() {
+        return Err("Close the game first.".into());
+    }
+    if !spt.ping().await {
+        return Err("The SPT server is not running.".into());
+    }
+    let list: Resp<Value> = spt.get("/launcher/v2/profiles").await?;
+    let p = list
+        .response
+        .as_array()
+        .and_then(|a| a.iter().find(|p| p.get("username").and_then(Value::as_str) == Some(username.as_str())))
+        .cloned()
+        .ok_or("That profile was not found on the server.")?;
+    if p.get("wipe").and_then(Value::as_bool) == Some(true) {
+        return Err("This profile has no character yet or is already set to be wiped on the next launch.".into());
+    }
+    let edition = p.get("edition").and_then(Value::as_str).unwrap_or_default().to_string();
+    let pid = p.get("profileId").and_then(Value::as_str).unwrap_or_default();
+    if pid.is_empty() || !pid.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err("The server returned no valid profile id.".into());
+    }
+
+    // back up the saved profile file first
+    let src = game.join("SPT_Runtime").join("user").join("profiles").join(format!("{pid}.json"));
+    let dir = game.join("OutpostLauncher").join("backups").join("profiles");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not create the backup folder ({e}); nothing was wiped."))?;
+    let safe: String = username.chars().filter(|c| c.is_ascii_alphanumeric()).take(24).collect();
+    let dst = dir.join(format!("{}-{}.json", now_secs(), safe));
+    let copied = std::fs::copy(&src, &dst).map_err(|e| format!("Could not back up the profile first ({e}); nothing was wiped."))?;
+    if std::fs::metadata(&src).map(|m| m.len()).unwrap_or(0) != copied {
+        return Err("The profile backup was incomplete; nothing was wiped.".into());
+    }
+
+    let r: Resp<bool> = spt.put("/launcher/v2/wipe", &json!({ "username": username, "edition": edition })).await?;
+    if !r.response {
+        return Err("The server refused the wipe. Profile wipe may be turned off in SPT_Runtime\\SPT_Data\\configs\\core.json (allowProfileWipe).".into());
+    }
+    Ok(format!("{username} will be wiped the next time you launch the game. A backup of the saved profile is in OutpostLauncher\\backups\\profiles."))
+}
+
 /// The same sequence as SPT.Launcher: ping, login, version check, file cleanup, patches, bundles, start.
 #[tauri::command]
 pub async fn launch_game(app: AppHandle, state: State<'_, AppState>, username: String) -> Result<Vec<String>, String> {
@@ -350,6 +435,15 @@ mod tests {
         assert_eq!(r.response, "Pong!");
         let r: Resp<bool> = parse(br#"{"response":true}"#).unwrap();
         assert!(r.response);
+    }
+
+    #[test]
+    fn profile_names_are_checked_before_anything_is_sent() {
+        assert_eq!(clean_profile_name("  Pilgrim  ").unwrap(), "Pilgrim");
+        assert!(clean_profile_name("   ").is_err());
+        assert!(clean_profile_name(&"x".repeat(41)).is_err());
+        assert!(clean_profile_name("bad\nname").is_err());
+        assert!(clean_profile_name(&"x".repeat(40)).is_ok());
     }
 
     #[test]

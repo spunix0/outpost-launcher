@@ -89,6 +89,14 @@ pub fn server_addr(game: &Path) -> String {
     format!("{ip}:{port}")
 }
 
+/// Remembers which profile is active (the profile switcher).
+#[tauri::command]
+pub fn set_last_profile(app: AppHandle, state: State<AppState>, username: Option<String>) {
+    let mut s = state.settings.lock().unwrap();
+    s.last_profile = username;
+    let _ = s.save(&app);
+}
+
 #[tauri::command]
 pub fn get_settings(state: State<AppState>) -> Settings {
     state.settings.lock().unwrap().clone()

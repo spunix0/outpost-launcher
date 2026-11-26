@@ -13,6 +13,16 @@ Start the SPT server, pick a profile, launch the game, and browse, install and u
 - Online / offline status; a server started elsewhere is detected and never stopped by the launcher
 - Optional auto-start: the server starts when the launcher opens (Settings; skipped if one is already running)
 
+**Profiles**
+- **Profile switcher:** a tile at the bottom of the sidebar shows the active profile; click it to switch from any page
+- **Profile preview** like the SPT launcher's profile page: level and EXP bar, roubles/dollars/euros, and the Overall / PMC /
+  Scav stats (raids, survival rate, kills, K/D, average life span, ...), plus edition, side and a Copy ID button
+- **Create profile:** name plus edition, with each edition's description, sent to the running server
+- **Wipe profile:** marks the profile to be wiped the next time the game launches (same as the SPT launcher). You must type
+  the profile name to confirm, and a copy of the saved profile file is made in `OutpostLauncher\backups\profiles` first; if
+  that copy fails, nothing is wiped
+- Profiles load as soon as the server is online and refresh when you come back to the launcher after a raid
+
 **Play**
 - Profile cards (name, side, level, edition, roubles, XP progress)
 - Launches exactly like the official SPT launcher: login, version check, file cleanup, mod bundle sync, then the game
@@ -54,8 +64,8 @@ trust the download: every release lists its SHA-256 so you can check the file, a
 yourself (see "Build from source").
 
 **Does it replace the official SPT launcher?**
-It does the same launch steps, so day to day you can use either. Creating new profiles still needs the official launcher
-for now.
+It does the same launch steps and can also create profiles, wipe them and preview their stats, so day to day you can use
+either. It does not delete profiles or edit their contents (yet).
 
 **Is it safe for my profile?**
 The launcher does not edit profiles. Mod installs can affect a profile the same way manual installs do: mods that add
@@ -131,8 +141,8 @@ cargo test --release --features tauri/custom-protocol
 Output: `src-tauri/target/release/outpost-launcher.exe`. The UI is plain HTML/CSS/JS in `ui/`.
 
 ## Roadmap
-- Profile editor
-- Create and wipe profiles
+- Several SPT installs side by side with a version switcher (design in progress)
+- Delete profiles and a profile editor
 - Mod thumbnails, if The Forge allows it
 
 ## License
