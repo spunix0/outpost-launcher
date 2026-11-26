@@ -1,6 +1,6 @@
 [package]
 name = "outpost-launcher"
-version = "0.1.0"
+version = "0.1.1"
 description = "SPT launcher with built-in server control, profiles and (later) a mod browser"
 edition = "2021"
 
