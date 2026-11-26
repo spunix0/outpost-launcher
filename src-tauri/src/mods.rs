@@ -791,7 +791,7 @@ fn check_target(game: &Path, t: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+pub fn copy_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for e in std::fs::read_dir(src)? {
         let e = e?;

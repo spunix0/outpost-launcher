@@ -17,6 +17,8 @@ crc32fast = "1"
 tokio = { version = "1", features = ["process", "io-util", "fs", "time"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 sevenz-rust = "0.6"
+sha2 = "0.10"
+fs2 = "0.4"
 
 [profile.release]
 strip = true

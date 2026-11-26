@@ -127,6 +127,58 @@ pub async fn profile_create(state: State<'_, AppState>, username: String, editio
     Ok(())
 }
 
+/// Copies SPT_Runtime\user\profiles\<id>.json to OutpostLauncher\backups\profiles\<time>-<name>-<tag>.json and checks the copy.
+/// Ok(None) when the profile has no saved file; Err when the copy could not be made or is incomplete.
+pub fn backup_profile_file(game: &Path, pid: &str, username: &str, tag: &str) -> Result<Option<PathBuf>, String> {
+    let src = game.join("SPT_Runtime").join("user").join("profiles").join(format!("{pid}.json"));
+    if !src.is_file() {
+        return Ok(None);
+    }
+    let dir = game.join("OutpostLauncher").join("backups").join("profiles");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not create the backup folder ({e}); nothing was changed."))?;
+    let safe: String = username.chars().filter(|c| c.is_ascii_alphanumeric()).take(24).collect();
+    let dst = dir.join(format!("{}-{}-{}.json", now_secs(), safe, tag));
+    let copied = std::fs::copy(&src, &dst).map_err(|e| format!("Could not back up the profile first ({e}); nothing was changed."))?;
+    if std::fs::metadata(&src).map(|m| m.len()).unwrap_or(0) != copied || std::fs::metadata(&dst).map(|m| m.len()).unwrap_or(0) != copied {
+        let _ = std::fs::remove_file(&dst);
+        return Err("The profile backup was incomplete; nothing was changed.".into());
+    }
+    Ok(Some(dst))
+}
+
+/// Deletes a profile from the server (what "Delete this profile" does in SPT.Launcher; the server removes the saved file).
+/// A copy of the saved file is made first; if that copy fails nothing is deleted.
+#[tauri::command]
+pub async fn profile_delete(state: State<'_, AppState>, username: String) -> Result<String, String> {
+    let (game, _, spt) = server_for(&state)?;
+    if game_running() {
+        return Err("Close the game first.".into());
+    }
+    if !spt.ping().await {
+        return Err("The SPT server is not running.".into());
+    }
+    let list: Resp<Value> = spt.get("/launcher/v2/profiles").await?;
+    let p = list
+        .response
+        .as_array()
+        .and_then(|a| a.iter().find(|p| p.get("username").and_then(Value::as_str) == Some(username.as_str())))
+        .cloned()
+        .ok_or("That profile was not found on the server.")?;
+    let pid = p.get("profileId").and_then(Value::as_str).unwrap_or_default().to_string();
+    if pid.is_empty() || !pid.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err("The server returned no valid profile id.".into());
+    }
+    let backup = backup_profile_file(&game, &pid, &username, "deleted")?;
+    let r: Resp<bool> = spt.put("/launcher/v2/remove", &json!({ "username": username })).await?;
+    if !r.response {
+        return Err("The server did not delete the profile.".into());
+    }
+    Ok(match backup {
+        Some(b) => format!("Deleted {username}. A copy of the saved profile is in OutpostLauncher\\backups\\profiles\\{}.", b.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()),
+        None => format!("Deleted {username} (it had no saved file to back up)."),
+    })
+}
+
 /// Marks a profile to be wiped the next time the game logs in to it (what "Wipe Profile" does in SPT.Launcher).
 /// The saved profile file is copied to OutpostLauncher\backups\profiles first; if that copy fails nothing is wiped.
 #[tauri::command]
@@ -154,15 +206,9 @@ pub async fn profile_wipe(state: State<'_, AppState>, username: String) -> Resul
         return Err("The server returned no valid profile id.".into());
     }
 
-    // back up the saved profile file first
-    let src = game.join("SPT_Runtime").join("user").join("profiles").join(format!("{pid}.json"));
-    let dir = game.join("OutpostLauncher").join("backups").join("profiles");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Could not create the backup folder ({e}); nothing was wiped."))?;
-    let safe: String = username.chars().filter(|c| c.is_ascii_alphanumeric()).take(24).collect();
-    let dst = dir.join(format!("{}-{}.json", now_secs(), safe));
-    let copied = std::fs::copy(&src, &dst).map_err(|e| format!("Could not back up the profile first ({e}); nothing was wiped."))?;
-    if std::fs::metadata(&src).map(|m| m.len()).unwrap_or(0) != copied {
-        return Err("The profile backup was incomplete; nothing was wiped.".into());
+    // back up the saved profile file first; without a verified copy nothing is wiped
+    if backup_profile_file(&game, pid, &username, "wiped")?.is_none() {
+        return Err("The saved profile file was not found, so it cannot be backed up; nothing was wiped.".into());
     }
 
     let r: Resp<bool> = spt.put("/launcher/v2/wipe", &json!({ "username": username, "edition": edition })).await?;
@@ -435,6 +481,25 @@ mod tests {
         assert_eq!(r.response, "Pong!");
         let r: Resp<bool> = parse(br#"{"response":true}"#).unwrap();
         assert!(r.response);
+    }
+
+    #[test]
+    fn profile_backup_copies_the_saved_file_or_reports_none() {
+        let game = std::env::temp_dir().join("outpost-test-profile-backup");
+        let _ = std::fs::remove_dir_all(&game);
+        let profiles = game.join("SPT_Runtime").join("user").join("profiles");
+        std::fs::create_dir_all(&profiles).unwrap();
+        std::fs::write(profiles.join("abc123.json"), br#"{"info":{"username":"main"}}"#).unwrap();
+        let b = backup_profile_file(&game, "abc123", "Main Char!", "deleted").unwrap().expect("a saved file gets a backup");
+        assert_eq!(std::fs::read(&b).unwrap(), br#"{"info":{"username":"main"}}"#);
+        let name = b.file_name().unwrap().to_string_lossy().to_string();
+        assert!(name.ends_with("-MainChar-deleted.json"), "{name}");
+        assert!(b.starts_with(game.join("OutpostLauncher").join("backups").join("profiles")));
+        // the original is untouched by the backup
+        assert!(profiles.join("abc123.json").is_file());
+        // no saved file: nothing to back up
+        assert!(backup_profile_file(&game, "nope", "x", "deleted").unwrap().is_none());
+        let _ = std::fs::remove_dir_all(&game);
     }
 
     #[test]

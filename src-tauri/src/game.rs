@@ -11,11 +11,24 @@ pub struct Settings {
     pub last_profile: Option<String>,
     /// Start the SPT server when the launcher opens (never stops one that is already running).
     pub auto_start_server: bool,
+    /// SPT installs this launcher knows (game_path is the active one).
+    pub installs: Vec<Install>,
+    /// Where new installs are created.
+    pub installs_root: String,
+    /// Keep the downloaded SPT archive after a successful install (default: delete it; it is kept when an install fails).
+    pub keep_downloads: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Install {
+    pub id: String,
+    pub name: String,
+    pub path: String,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { game_path: detect_game_path(), minimize_on_launch: true, last_profile: None, auto_start_server: true }
+        Settings { game_path: detect_game_path(), minimize_on_launch: true, last_profile: None, auto_start_server: true, installs: Vec::new(), installs_root: r"C:\SPT".to_string(), keep_downloads: false }
     }
 }
 

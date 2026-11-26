@@ -7,6 +7,7 @@ let status = null;        // { online, owned, address }
 let profiles = [];        // MiniProfiles from the running server
 let selected = null;      // username of the active profile
 let activeName = null;    // remembered even while the server is offline (settings.last_profile)
+let previewOnly = null;   // an unloadable profile being looked at (so it can be deleted); never the active one
 let profilesLoaded = false;
 let lastFetch = 0;
 let statTab = 'overall';
@@ -53,6 +54,7 @@ function show(page) {
   $('#profile-flyout').hidden = true;
   if (page === 'profiles') fetchProfiles();
   if (page === 'mods' && window.Mods) window.Mods.open();
+  if (page === 'versions' && window.Versions) window.Versions.open();
 }
 document.querySelectorAll('.rail button[data-page]').forEach((b) => (b.onclick = () => show(b.dataset.page)));
 
@@ -135,12 +137,20 @@ async function fetchProfiles(quiet) {
   lastFetch = Date.now();
   if (!selected) selected = activeName;
   // the remembered profile may be gone (deleted, or a different server): fall back to the first usable one
-  if (!profiles.some((p) => p.username === selected && !p.invalidOrUnloadableProfile)) selected = (profiles.find((p) => !p.invalidOrUnloadableProfile) || {}).username || null;
-  if (selected) activeName = selected;
+  if (!profiles.some((p) => p.username === selected && (!p.invalidOrUnloadableProfile || selected === previewOnly))) selected = (profiles.find((p) => !p.invalidOrUnloadableProfile) || {}).username || null;
+  if (selected && selected !== previewOnly) activeName = selected;
+  renderAll();
+}
+
+// previews a profile without making it the active one (used for unloadable profiles)
+function selectOnly(name) {
+  selected = name;
+  previewOnly = name;
   renderAll();
 }
 
 function setActive(name) {
+  previewOnly = null;
   selected = name;
   activeName = name;
   invoke('set_last_profile', { username: name }).catch(() => {});
@@ -155,7 +165,8 @@ function renderAll() {
 
 // --- sidebar tile + switcher flyout ---
 function renderRail() {
-  const p = profiles.find((x) => x.username === selected);
+  // the tile always shows the active profile, not one that is only being previewed
+  const p = profiles.find((x) => x.username === (previewOnly ? activeName : selected));
   const name = p ? displayName(p) : activeName || '?';
   const t = $('#rail-profile-tile');
   const c = tile(name);
@@ -223,12 +234,13 @@ function renderProfiles() {
     row.append(tile(displayName(p), 'ptile sm'), left, mk('span', 'edition', p.edition || ''));
     const xp = mk('div', 'xp'); const bar = mk('div'); bar.style.width = pct + '%'; xp.appendChild(bar);
     c.append(row, xp);
-    if (!invalid) c.onclick = () => setActive(p.username);
+    // an unloadable profile can still be selected, so it can be deleted (it just cannot be played)
+    c.onclick = () => (invalid ? selectOnly(p.username) : setActive(p.username));
     box.appendChild(c);
   }
   const sel = profiles.find((p) => p.username === selected);
   renderDetail(sel);
-  $('#playbar').hidden = !sel;
+  $('#playbar').hidden = !sel || !!sel.invalidOrUnloadableProfile;
   if (sel) $('#play-name').textContent = displayName(sel) + ' (' + sel.username + ')';
 }
 
@@ -269,11 +281,17 @@ function renderDetail(p) {
     wipe.onclick = () => openWipe(p);
     acts.appendChild(wipe);
   }
+  const del = mk('button', 'btn danger-outline', 'Delete profile');
+  del.onclick = () => openDelete(p);
+  acts.appendChild(del);
   head.append(tile(displayName(p), 'ptile lg'), info, acts);
   box.appendChild(head);
 
-  if (invalid) box.appendChild(mk('div', 'f-warn-box', 'The server marked this profile as invalid or unloadable.'));
-  else if (p.wipe && char) box.appendChild(mk('div', 'f-warn-box', 'A wipe is pending: this profile is reset to a new character the next time you launch the game.'));
+  if (invalid) {
+    box.appendChild(mk('div', 'f-warn-box', 'The server marked this profile as invalid or unloadable, so it cannot be played or previewed. You can delete it (a copy of its saved file is kept).'));
+    return;
+  }
+  if (p.wipe && char) box.appendChild(mk('div', 'f-warn-box', 'A wipe is pending: this profile is reset to a new character the next time you launch the game.'));
 
   // level
   if (char) {
@@ -383,6 +401,31 @@ $('#cp-go').onclick = async () => {
     $('#cp-go').disabled = false;
   }
 };
+
+// --- delete profile ---
+function openDelete(p) {
+  $('#dp-text').textContent = `This permanently deletes the profile "${displayName(p)}" (${p.username}) and all its progress.`;
+  $('#dp-label').textContent = `Type ${p.username} to confirm`;
+  $('#dp-restore').textContent = `${p.profileId || '<profile id>'}.json`;
+  const inp = $('#dp-confirm');
+  inp.value = '';
+  $('#dp-go').disabled = true;
+  inp.oninput = () => { $('#dp-go').disabled = inp.value.trim() !== p.username; };
+  inp.onkeydown = (e) => { if (e.key === 'Escape') $('#delete-dlg').hidden = true; };
+  $('#dp-cancel').onclick = () => { $('#delete-dlg').hidden = true; };
+  $('#dp-go').onclick = async () => {
+    $('#dp-go').disabled = true;
+    try {
+      toast(await invoke('profile_delete', { username: p.username }), 'ok');
+    } catch (e) { toast(e, 'error'); }
+    $('#delete-dlg').hidden = true;
+    await fetchProfiles();
+    // the deleted profile may have been the active one: remember whichever profile is active now
+    invoke('set_last_profile', { username: selected }).catch(() => {});
+  };
+  $('#delete-dlg').hidden = false;
+  inp.focus();
+}
 
 // --- wipe profile ---
 function openWipe(p) {

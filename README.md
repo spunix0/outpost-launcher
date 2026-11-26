@@ -21,7 +21,24 @@ Start the SPT server, pick a profile, launch the game, and browse, install and u
 - **Wipe profile:** marks the profile to be wiped the next time the game launches (same as the SPT launcher). You must type
   the profile name to confirm, and a copy of the saved profile file is made in `OutpostLauncher\backups\profiles` first; if
   that copy fails, nothing is wiped
+- **Delete profile:** removes the profile from the server (the server deletes its saved file). You must type the profile name
+  to confirm, and a copy of the saved file is made first in `OutpostLauncher\backups\profiles` (to restore it: stop the server,
+  copy it back into `SPT_Runtime\user\profiles` as `<profile id>.json`). If the copy fails, nothing is deleted. Profiles the
+  server marks as invalid or unloadable can be selected and deleted too
 - Profiles load as soon as the server is online and refresh when you come back to the launcher after a raid
+
+**SPT versions (several installs side by side)**
+- A sidebar tab lists your installs. Your current folder is added automatically; new ones are created under `C:\SPT\<name>`
+  (changeable). Each install has its own mods, profiles and logs
+- **Switch to this** makes another install the one the whole launcher works on (server, profiles, mod store); the window
+  reloads. Both versions use port 6969, so the server must be stopped first (the launcher offers to stop the one it started)
+- **Add a version:** lists every official SPT release that has a downloadable archive, with the Tarkov client build it needs.
+  The installer downloads the archive from the official GitHub release, checks it against GitHub's published SHA-256, clones
+  a matching Tarkov client from one of your installs, and unpacks SPT, with live progress and a Cancel button that leaves no
+  half-made folder behind
+- **Remove** deletes an install this launcher created (typed confirmation; its saved profiles are copied to
+  `C:\SPT\_removed` first). It never removes the active install or folders outside the installs folder
+- SPT 3.x installs are listed and can be started with their own launcher, but this launcher cannot run them
 
 **Play**
 - Profile cards (name, side, level, edition, roubles, XP progress)
@@ -58,6 +75,20 @@ Escape from Tarkov install.
 
 ## Q&A
 
+**Can it install any SPT version?**
+Only versions whose official release has a downloadable archive, and only when you have the Tarkov client that version needs.
+An SPT release contains just SPT (about 150 MB); the game (about 57 GB) is Battlestate's, comes from your own files, and must
+be the exact build the release was made for (for example 4.1.x needs build 40743, 3.11.x needs 35392). Old clients are no longer
+offered by the Battlestate launcher and this launcher does not download game files. If no install has the right build, the
+installer asks for the folder of your own copy and refuses a different build.
+
+**What are "shared game files" (hardlinks)? Is it safe?**
+A hardlink is a second name for the same file on disk. The big, never-changing asset files of the game (about 55 GB) are shared
+between your versions instead of copied, so each extra version costs roughly 2 GB. Only files outside `Managed` and `Plugins`
+(where mods write) are shared; everything small or changeable is copied. Deleting one install does not free the shared files
+until every install using them is gone. Sharing only works on one drive and is never used for a Steam folder; the installer
+falls back to full copies when it cannot share. You can untick "Share" to make a fully independent copy (about 57 GB).
+
 **Windows SmartScreen says "unknown publisher". Is it safe?**
 The exe is not code-signed (a certificate costs money), so Windows warns about any new unsigned program. You do not have to
 trust the download: every release lists its SHA-256 so you can check the file, and the full source is here to read or build
@@ -65,7 +96,7 @@ yourself (see "Build from source").
 
 **Does it replace the official SPT launcher?**
 It does the same launch steps and can also create profiles, wipe them and preview their stats, so day to day you can use
-either. It does not delete profiles or edit their contents (yet).
+either. It does not edit profile contents (yet).
 
 **Is it safe for my profile?**
 The launcher does not edit profiles. Mod installs can affect a profile the same way manual installs do: mods that add
@@ -141,8 +172,8 @@ cargo test --release --features tauri/custom-protocol
 Output: `src-tauri/target/release/outpost-launcher.exe`. The UI is plain HTML/CSS/JS in `ui/`.
 
 ## Roadmap
-- Several SPT installs side by side with a version switcher (design in progress)
-- Delete profiles and a profile editor
+- Running SPT 3.x installs from this launcher (needs a second protocol and folder layout)
+- A profile editor
 - Mod thumbnails, if The Forge allows it
 
 ## License

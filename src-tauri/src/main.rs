@@ -2,24 +2,28 @@
 
 mod forge;
 mod game;
+mod installs;
 mod mods;
 mod server;
 mod spt;
 
-use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Manager, WindowEvent};
 
 pub struct AppState {
     pub settings: Mutex<game::Settings>,
     pub server: server::ServerProc,
     pub forge: forge::Forge,
+    /// Cancel flag of the SPT version install that is running, if any.
+    pub job: Mutex<Option<Arc<AtomicBool>>>,
 }
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
             let settings = game::Settings::load(app.handle());
-            app.manage(AppState { settings: Mutex::new(settings), server: server::ServerProc::default(), forge: forge::Forge::default() });
+            app.manage(AppState { settings: Mutex::new(settings), server: server::ServerProc::default(), forge: forge::Forge::default(), job: Mutex::new(None) });
 
             // auto-start: only when enabled, the SPT folder is valid, and no server is answering yet
             let handle = app.handle().clone();
@@ -59,7 +63,20 @@ fn main() {
             spt::profile_types,
             spt::profile_create,
             spt::profile_wipe,
+            spt::profile_delete,
             game::set_last_profile,
+            installs::installs_list,
+            installs::installs_set_root,
+            installs::install_switch,
+            installs::install_open_folder,
+            installs::install_open_official,
+            installs::install_remove,
+            installs::versions_available,
+            installs::install_version,
+            installs::install_cancel,
+            installs::downloads_info,
+            installs::downloads_clear,
+            installs::downloads_set_keep,
             forge::forge_get,
             mods::mods_scan,
             mods::spt_version,

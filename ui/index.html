@@ -17,6 +17,9 @@
       <button data-page="profiles" title="Profiles">
         <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
       </button>
+      <button data-page="versions" title="SPT versions">
+        <svg viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg>
+      </button>
       <button data-page="mods" title="Mods">
         <svg viewBox="0 0 24 24"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/></svg>
       </button>
@@ -161,6 +164,48 @@
       </div>
     </section>
 
+    <!-- SPT versions -->
+    <section class="page" id="page-versions" hidden>
+      <header class="page-head">
+        <div>
+          <h1>SPT versions</h1>
+          <p class="muted">Keep several SPT versions side by side, each with its own mods and profiles. Switching changes what the whole launcher works on.</p>
+        </div>
+        <button class="btn" id="ver-refresh">Refresh</button>
+      </header>
+      <div>
+        <div class="card-meta">Your installs</div>
+        <div class="ver-installs" id="ver-installs"></div>
+      </div>
+      <div class="card ver-root">
+        <label class="field">
+          <span class="card-meta">New installs are created in</span>
+          <div class="ver-root-row">
+            <input type="text" id="ver-root" class="mono" spellcheck="false" placeholder="C:\SPT">
+            <button class="btn" id="ver-root-save">Save</button>
+          </div>
+        </label>
+      </div>
+      <div class="card ver-dl">
+        <div class="card-row">
+          <div>
+            <div class="card-meta">Downloaded SPT archives</div>
+            <div class="muted small" id="ver-dl-info">-</div>
+          </div>
+          <button class="btn" id="ver-dl-clear" disabled>Clear downloads</button>
+        </div>
+        <label class="switch-row">
+          <input type="checkbox" id="ver-dl-keep">
+          <span>Keep the archive after a successful install (by default it is deleted; it is only kept when an install fails or is cancelled, so a retry does not download it again)</span>
+        </label>
+      </div>
+      <div>
+        <div class="card-meta">Add a version</div>
+        <p class="muted small" id="ver-note"></p>
+        <div class="ver-releases" id="ver-releases"></div>
+      </div>
+    </section>
+
     <!-- Settings -->
     <section class="page" id="page-settings" hidden>
       <header class="page-head">
@@ -264,6 +309,82 @@
     </div>
   </div>
 
+  <div class="overlay" id="delete-dlg" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2>Delete profile</h2>
+      <p class="muted small" id="dp-text"></p>
+      <div class="wipe-keep">
+        <div class="card-meta">What happens</div>
+        <ul>
+          <li>The profile is removed from the server and its saved file is deleted</li>
+          <li>A copy of the saved file is made first in <span class="mono">OutpostLauncher\backups\profiles</span></li>
+          <li>To get it back: stop the server, copy that file into <span class="mono">SPT_Runtime\user\profiles</span> and rename it to <span class="mono" id="dp-restore">&lt;profile id&gt;.json</span></li>
+        </ul>
+      </div>
+      <p class="muted small">Close the game before deleting.</p>
+      <label class="field">
+        <span class="card-meta" id="dp-label">Type the profile name to confirm</span>
+        <input type="text" id="dp-confirm" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="btns right">
+        <button class="btn" id="dp-cancel">Cancel</button>
+        <button class="btn danger" id="dp-go" disabled>Yes, delete profile</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ver-dlg" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2 id="vd-title">Install</h2>
+      <p class="muted small" id="vd-sub"></p>
+      <label class="field">
+        <span class="card-meta">Folder name</span>
+        <input type="text" id="vd-name" maxlength="60" spellcheck="false" autocomplete="off">
+        <span class="small muted mono" id="vd-target"></span>
+      </label>
+      <div class="field">
+        <span class="card-meta">Game files (the Tarkov client) come from</span>
+        <select id="vd-source"></select>
+        <input type="text" id="vd-path" class="mono" spellcheck="false" autocomplete="off" placeholder="Folder with your own EscapeFromTarkov.exe" hidden>
+        <span class="small muted" id="vd-source-note"></span>
+      </div>
+      <label class="switch-row">
+        <input type="checkbox" id="vd-share" checked>
+        <span>Share the big game files with that folder (hardlinks): saves about 56 GB and is instant. Only works on the same drive.</span>
+      </label>
+      <p class="muted small" id="vd-warn"></p>
+      <div class="btns right">
+        <button class="btn" id="vd-cancel">Cancel</button>
+        <button class="btn primary" id="vd-go">Install</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ver-run" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2 id="vr-title">Installing</h2>
+      <div class="ver-steps" id="vr-steps"></div>
+      <div class="xp thick"><div id="vr-bar" style="width:0%"></div></div>
+      <div class="muted small" id="vr-note">Starting</div>
+      <div class="btns right"><button class="btn" id="vr-cancel">Cancel</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="typed-dlg" hidden>
+    <div class="card dialog wide form-dialog">
+      <h2 id="td-title"></h2>
+      <p class="muted small" id="td-text"></p>
+      <label class="field">
+        <span class="card-meta" id="td-label"></span>
+        <input type="text" id="td-input" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="btns right">
+        <button class="btn" id="td-cancel">Cancel</button>
+        <button class="btn danger" id="td-go" disabled>Remove</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="install-dlg" hidden>
     <div class="card dialog wide">
       <h2 id="inst-title">Install</h2>
@@ -287,5 +408,6 @@
   <div class="toasts" id="toasts"></div>
   <script src="app.js"></script>
   <script src="mods.js"></script>
+  <script src="versions.js"></script>
 </body>
 </html>

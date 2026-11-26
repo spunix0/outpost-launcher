@@ -250,3 +250,32 @@ select option { background: #1b1b22; color: var(--text); }
 .ed-item.on { border-color: var(--tan); background: rgba(216, 193, 153, 0.08); }
 .ed-name { font-weight: 500; }
 .ed-desc { font-size: 0.78rem; color: var(--muted); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ---------- SPT versions ---------- */
+.ver-installs { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; margin-top: 6px; }
+.ver-card { display: flex; flex-direction: column; gap: 8px; }
+.ver-card.active { border-color: rgba(216, 193, 153, 0.7); }
+.ver-name { font-size: 1.05rem; font-weight: 500; }
+.ver-title { min-width: 0; }
+.ver-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ver-path { word-break: break-all; }
+.ver-btns { flex-wrap: wrap; margin-top: 2px; }
+.ver-root-row { display: flex; gap: 8px; }
+.ver-root-row input { flex: 1; }
+.ver-releases { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.ver-rel { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.ver-rel-side { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.ver-rel-info { min-width: 0; }
+.ver-steps { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+.ver-step { color: var(--dim); padding-left: 22px; position: relative; font-size: 0.92rem; }
+.ver-step::before { content: ''; position: absolute; left: 4px; top: 6px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--dim); }
+.ver-step.now { color: var(--text); }
+.ver-step.now::before { border-color: var(--tan); background: var(--tan); animation: pulse 1.2s ease-in-out infinite; }
+.ver-step.done { color: var(--muted); }
+.ver-step.done::before { border-color: var(--ok); background: var(--ok); }
+/* tag pills of the versions tab */
+.vpill { border-radius: 6px; padding: 1px 7px; font-size: 0.7rem; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.25); color: var(--muted); white-space: nowrap; }
+.vpill.green { border-color: rgba(34, 197, 94, 0.5); color: #86efac; background: rgba(34, 197, 94, 0.1); }
+.vpill.cyan { border-color: rgba(6, 182, 212, 0.5); color: #67e8f9; background: rgba(6, 182, 212, 0.1); }
+.vpill.amber { border-color: rgba(245, 158, 11, 0.5); color: #fcd34d; background: rgba(245, 158, 11, 0.1); }
+.vpill.red { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
