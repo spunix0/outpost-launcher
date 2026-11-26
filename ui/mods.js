@@ -7,6 +7,7 @@
     local: new Map(),        // lower guid -> { guid, version, source }
     trackedIds: new Set(),   // Forge mod ids installed by this launcher
     scan: null, forgeByGuid: new Map(), updates: [], updatesChecked: false,
+    trackedByGuid: new Map(), // lower guid -> record of a mod installed by this launcher
   };
 
   // ---------- small helpers ----------
@@ -25,19 +26,14 @@
     const words = (n || '?').split(/[^A-Za-z0-9]+/).filter(Boolean);
     return (words.length ? words.slice(0, 2).map((w) => w[0]).join('') : '?').toUpperCase();
   }
-  // Forge's file server only serves its thumbnails to sp-mod.com pages (hotlink protection), so every mod gets an icon for its
-  // category on a tile coloured by that category.
-  const CAT_ICON = {
-    audio: ['🔊', 195], bots: ['🤖', 150], clothing: ['👕', 285], equipment: ['🎒', 35], hideout: ['🏠', 25], items: ['📦', 45],
-    locales: ['🌐', 205], locations: ['🗺️', 120], models: ['🧊', 175], other: ['✨', 260], overhauls: ['🧩', 330],
-    quests: ['📜', 55], retextures: ['🎨', 310], scripting: ['📝', 215], tools: ['🔧', 0], traders: ['🛒', 90], ui: ['🖥️', 235], weapons: ['🔫', 10],
-  };
-  function thumb(mod, name, cls = 'f-thumb') {
-    const title = mod && ((mod.category && mod.category.title) || S.cats.get(mod.category_id));
-    const [glyph, hue] = CAT_ICON[(title || '').toLowerCase()] || ['🔌', 220];
-    const d = el('div', cls, glyph);
-    d.title = title || name || '';
-    d.style.background = `linear-gradient(160deg, hsl(${hue} 45% 30%), hsl(${(hue + 25) % 360} 50% 15%))`;
+  // Forge's file server only serves its thumbnails to sp-mod.com pages (hotlink protection), so a mod's tile shows its initials
+  // on a colour derived from its name (the same mod always gets the same colour).
+  function thumb(_mod, name, cls = 'f-thumb') {
+    const d = el('div', cls, initials(name));
+    let h = 0;
+    for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    d.style.background = `linear-gradient(160deg, hsl(${h % 360} 45% 32%), hsl(${(h % 360 + 30) % 360} 50% 18%))`;
+    d.style.color = 'rgba(255,255,255,0.88)';
     return d;
   }
   function pill(text, color = '') { return el('span', 'f-pill ' + color, text); }
@@ -99,7 +95,7 @@
   // ---------- local scan ----------
   async function rescan() {
     try { S.scan = await invoke('mods_scan'); } catch (e) { toast(e, 'error'); return; }
-    S.local.clear(); S.trackedIds.clear();
+    S.local.clear(); S.trackedIds.clear(); S.trackedByGuid.clear();
     if (S.scan.spt_version) S.spt = S.scan.spt_version;
     for (const p of S.scan.plugins || []) S.local.set(p.guid.toLowerCase(), { guid: p.guid, version: p.version, source: 'client' });
     for (const m of Object.values(S.scan.server_mods || {})) {
@@ -108,6 +104,7 @@
     }
     for (const t of S.scan.tracked || []) {
       S.trackedIds.add(t.mod_id);
+      if (t.guid) S.trackedByGuid.set(t.guid.toLowerCase(), t);
       if (t.guid && !S.local.has(t.guid.toLowerCase())) S.local.set(t.guid.toLowerCase(), { guid: t.guid, version: t.version, source: 'tracked' });
     }
     computeMissing();
@@ -500,7 +497,7 @@
       if (m.cheat_notice) warn.push('Cheat notice on The Forge.');
       if (m.contains_ads) warn.push('Contains advertising.');
       $('#inst-note').textContent = [note, ...warn,
-        'Files come from each author\'s own host (for example GitHub) and unpack into BepInEx\\plugins and SPT_Runtime\\user\\mods.',
+        'Files come from each author\'s own host (for example GitHub) and unpack into your SPT folder (usually BepInEx\\plugins and SPT_Runtime\\user\\mods; nothing outside the SPT folder is ever touched).',
         'Overwritten files are backed up to OutpostLauncher\\backups. Close the game and stop the SPT server first. Only install mods you trust.'].filter(Boolean).join(' ');
       $('#install-dlg').hidden = false;
       const done = (v) => { $('#install-dlg').hidden = true; resolve(v); };
@@ -587,30 +584,66 @@
       list.appendChild(el('div', 'f-section', 'Installed with Outpost Launcher'));
       for (const t of tracked) {
         const fm = t.guid ? S.forgeByGuid.get(t.guid.toLowerCase()) : null;
-        const rm = button('Remove', '', async () => {
-          if (!(await ask('Remove ' + t.name + '?', `Its ${t.files.length} files are moved to OutpostLauncher\\backups (not deleted). Close the game and stop the SPT server first.`, 'Remove'))) return;
-          try { toast(await invoke('mod_uninstall', { modId: t.mod_id, kind: t.kind }), 'ok'); } catch (e) { toast(e, 'error'); }
-          await rescan(); renderInstalled();
-        });
-        list.appendChild(row(t.name, `${t.version} · ${t.files.length} files · ${t.kind}`, fm || { id: t.mod_id, thumbnail: '' }, [rm]));
+        list.appendChild(row(t.name, `${t.version} · ${t.files.length} files · ${t.kind}`, fm || { id: t.mod_id, thumbnail: '' }, [button('Uninstall', '', () => uninstallTracked(t))]));
       }
     }
     list.appendChild(el('div', 'f-section', 'Client plugins (BepInEx)'));
     for (const p of plugins.sort((a, b) => a.name.localeCompare(b.name))) {
       const fm = S.forgeByGuid.get(p.guid.toLowerCase());
       const lack = (p.deps || []).filter((d) => d.hard && !S.local.has(d.guid.toLowerCase())).map((d) => d.guid);
-      list.appendChild(row(p.name, `${p.version} · ${p.guid}` + (fm ? '' : ' · not on The Forge') + (lack.length ? ' · MISSING: ' + lack.join(', ') : ''), fm, []));
+      list.appendChild(row(p.name, `${p.version} · ${p.guid}` + (fm ? '' : ' · not on The Forge') + (lack.length ? ' · MISSING: ' + lack.join(', ') : ''), fm, uninstallBtn(p.guid, p.name, null)));
     }
     list.appendChild(el('div', 'f-section', 'Server mods'));
     if (serverMods.length) {
       for (const m of serverMods.sort((a, b) => String(a.Name ?? a.name).localeCompare(String(b.Name ?? b.name)))) {
         const guid = m.ModGuid ?? m.modGuid ?? '';
         const fm = guid ? S.forgeByGuid.get(guid.toLowerCase()) : null;
-        list.appendChild(row(m.Name ?? m.name ?? guid, `${verText(m.Version ?? m.version)} · ${m.Author ?? m.author ?? ''}`, fm, []));
+        list.appendChild(row(m.Name ?? m.name ?? guid, `${verText(m.Version ?? m.version)} · ${m.Author ?? m.author ?? ''}`, fm, uninstallBtn(guid, m.Name ?? m.name ?? guid, null)));
       }
     } else {
-      for (const f of S.scan.server_folders || []) list.appendChild(row(f, 'Start the SPT server to see its version', null, []));
+      for (const f of S.scan.server_folders || []) list.appendChild(row(f, 'Server mod folder (the SPT server is not running)', null, uninstallBtn(null, f, f)));
     }
+  }
+
+  // ---------- uninstall ----------
+  const isCore = (guid) => /^com\.spt\./i.test(guid || '') || /^com\.bepis\.bepinex\.configurationmanager$/i.test(guid || '');
+
+  // SPT's own parts get no button; mods installed by this launcher use their recorded file list
+  function uninstallBtn(guid, name, folder) {
+    if (guid && isCore(guid)) return [];
+    const t = guid && S.trackedByGuid.get(guid.toLowerCase());
+    return [button('Uninstall', '', () => (t ? uninstallTracked(t) : uninstallLocal(guid, name, folder)))];
+  }
+
+  function dependentsOf(guid) {
+    if (!guid) return [];
+    const g = guid.toLowerCase();
+    return (S.scan.plugins || []).filter((p) => p.guid.toLowerCase() !== g && (p.deps || []).some((d) => d.hard && d.guid.toLowerCase() === g)).map((p) => p.name);
+  }
+
+  async function afterUninstall() { await rescan(); renderInstalled(); }
+
+  async function uninstallLocal(guid, name, folder) {
+    let plan;
+    try { plan = await invoke('mod_uninstall_plan', { guid: guid || null, folder: folder || null }); } catch (e) { toast(e, 'error'); return; }
+    const dep = dependentsOf(guid);
+    const text = `These are moved to OutpostLauncher\\backups (not deleted):\n\n${plan.targets.join('\n')}` +
+      (plan.notes.length ? '\n\n' + plan.notes.join('\n') : '') +
+      (dep.length ? `\n\nWARNING: ${dep.join(', ')} ${dep.length > 1 ? 'need' : 'needs'} this mod and will stop loading.` : '') +
+      '\n\nClose the game and stop the SPT server first.';
+    if (!(await ask('Uninstall ' + name + '?', text, 'Uninstall'))) return;
+    try { toast(await invoke('mod_uninstall_local', { guid: guid || null, folder: folder || null }), 'ok'); } catch (e) { toast(e, 'error'); }
+    await afterUninstall();
+  }
+
+  async function uninstallTracked(t) {
+    const dep = dependentsOf(t.guid);
+    const text = `Its ${t.files.length} files are moved to OutpostLauncher\\backups (not deleted).` +
+      (dep.length ? `\n\nWARNING: ${dep.join(', ')} ${dep.length > 1 ? 'need' : 'needs'} this mod and will stop loading.` : '') +
+      '\n\nClose the game and stop the SPT server first.';
+    if (!(await ask('Uninstall ' + t.name + '?', text, 'Uninstall'))) return;
+    try { toast(await invoke('mod_uninstall', { modId: t.mod_id, kind: t.kind }), 'ok'); } catch (e) { toast(e, 'error'); }
+    await afterUninstall();
   }
   $('#btn-rescan').onclick = async () => { await rescan(); renderInstalled(); };
 
@@ -656,13 +689,73 @@
     try {
       const items = [];
       for (const u of list) items.push(await updateItem(u));
+      // new versions can need mods that are not installed yet: offer to install those together with the update
+      const extra = [];
+      for (const it of items) {
+        try {
+          for (const d of installable(await depsOf(it.guid, it.version), it.name)) if (!extra.some((x) => x.mod_id === d.mod_id) && !items.some((x) => x.mod_id === d.mod_id)) extra.push(d);
+        } catch { /* the update itself does not depend on this lookup */ }
+      }
+      let toInstall = items;
+      if (extra.length) {
+        const chosen = await confirmInstall({ name: list.length === 1 ? items[0].name + ' and its new dependencies' : 'updates and their new dependencies' },
+          [...extra, ...items.map((i) => ({ ...i, dep: false }))], 'The updated mods need these mods, which you do not have yet.');
+        if (!chosen) return;
+        toInstall = chosen;
+      }
       const page = list.length === 1 ? (S.forgeByGuid.get((cur(list[0]).guid || '').toLowerCase()) || {}).detail_url : null;
-      if (await runInstall(items, page)) { S.updatesChecked = false; checkUpdates(); }
+      if (await runInstall(toInstall, page)) { S.updatesChecked = false; checkUpdates(); }
     } catch (e) { toast(e, 'error'); }
   }
 
-  // a row needs a mod-like object only for its category icon; unknown mods get the generic plug icon
   const modStub = () => null;
+
+  // Says exactly why an update is blocked, naming the mods involved. The updates endpoint gives only a code for
+  // missing_dependency / chain_dependency_conflict, so the new version's dependencies are looked up and compared with what is installed.
+  // every dependency (flattened) that The Forge lists for this exact version of a mod
+  async function depsOf(guid, version) {
+    const key = `${guid}:${version}`;
+    const r = await F(`/api/v0/mods/dependencies?mods=${encodeURIComponent(key)}&spt_version=${encodeURIComponent(S.spt)}`);
+    const tree = (r.data && (r.data[key] || Object.values(r.data)[0])) || [];
+    const flat = [];
+    const walk = (list) => { for (const d of list) { walk(d.dependencies || []); if (!flat.some((x) => x.id === d.id)) flat.push(d); } };
+    walk(tree);
+    return flat;
+  }
+
+  // dependencies of that version which are not installed yet and can be installed from The Forge, as install-list items
+  const installable = (flat, byName) => flat
+    .filter((d) => d.latest_compatible_version && !d.conflict && installedVer(d) == null)
+    .map((d) => ({ mod_id: d.id, guid: d.guid || '', name: d.name, version: d.latest_compatible_version.version, link: d.latest_compatible_version.link,
+      kind: 'mod', size: d.latest_compatible_version.content_length, dep: true, have: null, by: byName }));
+
+  // -> { text, items }: why the update is blocked, and the missing dependencies that could be installed to fix it
+  async function explainBlocked(u) {
+    const c = cur(u), l = lat(u);
+    if (u.block_reason === 'dependency_constraint_violation') {
+      const by = (u.blocking_mods || []).map((b) => `${b.mod_name} ${b.current_version} only works with version ${b.constraint}, not ${b.incompatible_with}`);
+      return { text: by.length ? by.join('; ') : 'another installed mod needs the version you have now', items: [] };
+    }
+    const flat = await depsOf(c.guid, l.version);
+    const issues = [];
+    for (const d of flat) {
+      const have = installedVer(d);
+      const lv = d.latest_compatible_version;
+      if (!lv) issues.push(`needs ${d.name}, but The Forge has no version of it for SPT ${S.spt}` + (have ? ` (you have ${have} installed)` : ' and it is not installed'));
+      else if (d.conflict) issues.push(`needs ${d.name} ${lv.version}, which conflicts with a mod you have installed`);
+      else if (have == null) issues.push(`needs ${d.name} ${lv.version}, which is not installed`);
+    }
+    const items = installable(flat, c.name || c.guid);
+    if (issues.length) return { text: (u.block_reason === 'chain_dependency_conflict' ? 'dependency conflict: ' : 'missing dependency: ') + issues.join('; '), items };
+    const needs = flat.map((d) => `${d.name} ${(d.latest_compatible_version || {}).version || ''}`.trim());
+    return { text: 'its dependency chain conflicts with your other mods' + (needs.length ? ` (it needs ${needs.join(', ')}); The Forge does not say which installed mod it clashes with` : ''), items };
+  }
+
+  async function installBlockedDeps(u, items) {
+    const c = cur(u), l = lat(u);
+    const chosen = await confirmInstall({ name: 'missing dependencies' }, items, `They are needed to update ${c.name || c.guid} to ${l.version}.`);
+    if (chosen && chosen.length && (await runInstall(chosen, null))) { S.updatesChecked = false; checkUpdates(); }
+  }
 
   function cmpVer(a, b) {
     const p = (v) => String(v || '').split(/[.\-+]/).map((x) => parseInt(x, 10) || 0);
@@ -727,19 +820,25 @@
       list.appendChild(el('div', 'f-section', 'Blocked updates'));
       for (const u of res.blocked_updates) {
         const c = cur(u), l = lat(u);
-        const by = (u.blocking_mods || []).map((b) => `${b.mod_name} ${b.current_version} needs ${b.constraint}`).join('; ');
-        const why = u.block_reason === 'dependency_constraint_violation' ? 'another mod needs the current version' + (by ? ': ' + by : '')
-          : u.block_reason === 'chain_dependency_conflict' ? 'its new dependencies conflict with your other mods' : (u.block_reason || 'blocked');
         const wrap = el('div', 'f-upd');
         const notes = el('div');
         const nb = button('Patch notes', '', () => toggleNotes(u, notes, nb));
-        wrap.append(row(c.name || c.guid, `${c.version} → ${l.version} · blocked: ${why}`, S.forgeByGuid.get((c.guid || '').toLowerCase()), [nb]), notes);
+        const r = row(c.name || c.guid, `${c.version} → ${l.version} · blocked: checking why…`, S.forgeByGuid.get((c.guid || '').toLowerCase()), [nb]);
+        wrap.append(r, notes);
         list.appendChild(wrap);
+        const by = r.querySelector('.f-by');
+        explainBlocked(u).then(({ text, items }) => {
+          by.textContent = `${c.version} → ${l.version} · blocked: ${text}`;
+          if (items.length) r.querySelector('.btns').prepend(button(`Install missing dependencies (${items.length})`, 'primary', () => installBlockedDeps(u, items)));
+        }).catch(() => { by.textContent = `${c.version} → ${l.version} · blocked (${u.block_reason || 'reason unknown'})`; });
       }
     }
     if (res.incompatible_with_spt.length) {
-      list.appendChild(el('div', 'f-section', `No version for SPT ${S.spt}`));
-      for (const u of res.incompatible_with_spt) { const c = cur(u); list.appendChild(row(c.name || c.guid || u.guid || '?', c.version || '', null, [])); }
+      list.appendChild(el('div', 'f-section', `No version for SPT ${S.spt} on The Forge`));
+      for (const u of res.incompatible_with_spt) {
+        const name = u.name || (u.current_version && u.current_version.name) || u.guid || '?';
+        list.appendChild(row(name, `${u.version || ''} · The Forge lists no version of this mod for SPT ${S.spt}, so it cannot be updated and mods that need it are held back`, S.forgeByGuid.get((u.guid || '').toLowerCase()), []));
+      }
     }
     if (!list.childElementCount) list.appendChild(el('div', 'f-empty', 'Everything is up to date.'));
   }

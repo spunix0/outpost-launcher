@@ -72,7 +72,7 @@
 .f-view button.active { background: var(--f-card-2); color: #fff; }
 .f-grid.compact { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .f-grid.compact .f-card { padding: 8px; gap: 9px; border-radius: 10px; align-items: center; }
-.f-grid.compact .f-thumb { width: 40px; height: 40px; flex-basis: 40px; font-size: 1.35rem; border-radius: 7px; }
+.f-grid.compact .f-thumb { width: 40px; height: 40px; flex-basis: 40px; font-size: 0.9rem; border-radius: 7px; }
 .f-grid.compact .f-name { font-size: 0.84rem; -webkit-line-clamp: 1; }
 .f-grid.compact .f-by, .f-grid.compact .f-teaser { display: none; }
 .f-grid.compact .f-meta { gap: 4px 8px; margin-top: 2px; }
@@ -130,9 +130,8 @@
 .f-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
 .f-list { display: flex; flex-direction: column; gap: 8px; }
 .f-row { display: flex; align-items: center; gap: 12px; background: var(--f-card); border: 1px solid var(--f-border); border-radius: 10px; padding: 8px 12px; }
-.f-thumb { font-size: 1.9rem; }
-.f-head .f-thumb { font-size: 3rem; }
-.f-row .f-thumb { width: 44px; height: 44px; flex-basis: 44px; font-size: 1.35rem; }
+.f-head .f-thumb { font-size: 2.4rem; letter-spacing: 0.02em; }
+.f-row .f-thumb { width: 44px; height: 44px; flex-basis: 44px; font-size: 0.95rem; }
 .f-row .f-body { gap: 2px; }
 .f-row .f-name { font-size: 0.9rem; -webkit-line-clamp: 1; }
 .f-row .btns { flex: 0 0 auto; }

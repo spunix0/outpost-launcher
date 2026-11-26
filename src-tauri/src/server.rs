@@ -25,6 +25,15 @@ impl ServerProc {
         alive
     }
 
+    /// A launcher message shown in the server console.
+    pub fn note(&self, line: String) {
+        let mut l = self.log.lock().unwrap();
+        if l.len() >= LOG_LINES {
+            l.pop_front();
+        }
+        l.push_back(line);
+    }
+
     pub fn kill_owned(&self) {
         if let Some(mut c) = self.child.lock().unwrap().take() {
             let _ = c.start_kill();
@@ -49,7 +58,12 @@ pub async fn server_status(state: State<'_, AppState>) -> Result<ServerStatus, S
 
 #[tauri::command]
 pub async fn server_start(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let game = game::game_dir(&state)?;
+    start(&app, &state).await
+}
+
+/// Starts SPT.Server.exe unless one is already answering. Used by the Start button and by auto-start at launcher startup.
+pub async fn start(app: &AppHandle, state: &AppState) -> Result<(), String> {
+    let game = game::game_dir(state)?;
     if Spt::new(&game::server_addr(&game)).ping().await {
         return Err("The SPT server is already running.".into());
     }

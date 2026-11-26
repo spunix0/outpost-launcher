@@ -11,6 +11,7 @@ Start the SPT server, pick a profile, launch the game, and browse, install and u
 **Server**
 - Start and stop the SPT server from the launcher, with its live console built in
 - Online / offline status; a server started elsewhere is detected and never stopped by the launcher
+- Optional auto-start: the server starts when the launcher opens (Settings; skipped if one is already running)
 
 **Play**
 - Profile cards (name, side, level, edition, roubles, XP progress)
@@ -28,8 +29,13 @@ Start the SPT server, pick a profile, launch the game, and browse, install and u
   between yours and the update, right in the list
 - **Missing dependencies:** the launcher reads each plugin's declared dependencies (and BepInEx's "missing dependencies" log
   lines), tells you exactly what is missing and which mod needs it, and offers to install it from The Forge
-- Installed view: your client plugins and server mods matched to The Forge; remove mods installed by the launcher
-- Page navigation with first/last arrows and a jump-to-page box; category icons on every mod
+- Blocked updates say exactly why (which mod needs which version, or which dependency has no version for your SPT), and an
+  **Install missing dependencies** button appears when the missing mods can be installed from The Forge; normal updates
+  offer to install any new dependencies together with the update
+- Installed view: your client plugins and server mods matched to The Forge, with **Uninstall** for any of them. Uninstall
+  works out which files belong to the mod (its plugin folder and its server folder), warns if other mods need it, and moves
+  everything to a backup folder instead of deleting it. SPT's own parts are protected
+- Page navigation with first/last arrows and a jump-to-page box; each mod gets an initials tile
 
 ## Install
 
@@ -57,9 +63,13 @@ items to your profile ("profile binding" on The Forge, shown as a warning on the
 remove them later. Back up `SPT_Runtime\user\profiles` before big changes.
 
 **Where do mods get installed? Can I undo an install?**
-Only into `BepInEx\plugins`, `BepInEx\patchers`, `BepInEx\config` and `SPT_Runtime\user\mods`. Archives that try to write
-anywhere else are refused. Every file an install overwrites is copied to `OutpostLauncher\backups\` first, and
-**Remove** moves a mod's files to that backup folder instead of deleting them.
+Almost always into `BepInEx\plugins` and `SPT_Runtime\user\mods`. Some mods also ship files for the game folder itself
+(for example DLLs in `EscapeFromTarkov_Data\Managed`); those are installed too, and the install message lists them. The
+launcher only ever writes **inside the SPT folder you selected**: paths that try to leave it (`..`, drive letters, links or
+junctions pointing elsewhere) are refused, and so are programs and scripts (`.exe`, `.bat`, `.cmd`, `.ps1`, ...). Every
+file an install overwrites is copied to `OutpostLauncher\backups\` first. **Uninstall** moves a mod's files to that backup
+folder instead of deleting them. Shared game files a mod added (such as a DLL in `Managed`) are left in place, because the
+game or another mod may rely on them.
 
 **Why does an install say "Stop the SPT server first"?**
 The running server keeps server-mod files locked, and the game locks client plugins. Close both, install, then start again.
@@ -68,10 +78,10 @@ The running server keeps server-mod files locked, and the game locks client plug
 Downloads come from each author's own host. GitHub and direct links install automatically; hosts that show a web page
 first (Google Drive, Mega, etc.) and `.rar` archives need a manual download.
 
-**Why do mods show category icons instead of their own pictures?**
+**Why do mods show letters instead of their own pictures?**
 The Forge's image server only serves its thumbnails to sp-mod.com itself (hotlink protection). The launcher respects that
-instead of faking a referrer, so each mod shows an icon for its category (bots, weapons, traders, ...). Mod descriptions
-still show images hosted elsewhere (imgur, GitHub, ...).
+instead of faking a referrer, so each mod shows its initials on a colour taken from its name. Mod descriptions still show
+images hosted elsewhere (imgur, GitHub, ...).
 
 **It says a mod has a missing dependency. What does that mean?**
 The mod declares that it needs another mod (for example BigBrain) which is not in your install, so BepInEx will refuse to

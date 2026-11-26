@@ -100,6 +100,9 @@ pub async fn launch_game(app: AppHandle, state: State<'_, AppState>, username: S
 
     step("Connecting to the SPT server");
     if !spt.ping().await {
+        if state.server.owned_running() {
+            return Err("The SPT server is still starting. Wait for the green \"Online\" dot on the Server page, then press Play again.".into());
+        }
         return Err(format!("The SPT server at {addr} is not running. Start it on the Server page."));
     }
 

@@ -20,6 +20,21 @@ fn main() {
         .setup(|app| {
             let settings = game::Settings::load(app.handle());
             app.manage(AppState { settings: Mutex::new(settings), server: server::ServerProc::default(), forge: forge::Forge::default() });
+
+            // auto-start: only when enabled, the SPT folder is valid, and no server is answering yet
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = handle.state::<AppState>();
+                let enabled = state.settings.lock().unwrap().auto_start_server;
+                if !enabled {
+                    return;
+                }
+                if let Err(e) = server::start(&handle, &state).await {
+                    if !e.contains("already") && !e.contains("Choose your SPT folder") {
+                        state.server.note(format!("Auto-start failed: {e}"));
+                    }
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -46,6 +61,8 @@ fn main() {
             mods::spt_version,
             mods::mod_install,
             mods::mod_uninstall,
+            mods::mod_uninstall_plan,
+            mods::mod_uninstall_local,
             open_url,
             quit_app
         ])

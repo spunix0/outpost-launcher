@@ -4,7 +4,6 @@ const { listen } = window.__TAURI__.event;
 const $ = (s) => document.querySelector(s);
 
 let status = null;        // { online, owned, address }
-let starting = false;     // start pressed, server not answering yet
 let profiles = [];
 let selected = null;      // username
 
@@ -14,7 +13,14 @@ function toast(msg, kind = '') {
   t.className = 'toast ' + kind;
   t.textContent = String(msg);
   $('#toasts').appendChild(t);
-  setTimeout(() => t.remove(), kind === 'error' ? 9000 : 5000);
+  if (kind === 'error') {
+    // errors stay until clicked, so they cannot be missed
+    t.title = 'Click to dismiss';
+    t.style.cursor = 'pointer';
+    t.onclick = () => t.remove();
+  } else {
+    setTimeout(() => t.remove(), Math.min(20000, 5000 + String(msg).length * 40));
+  }
 }
 
 function ask(title, text, yes = 'OK', style = 'danger') {
@@ -45,8 +51,8 @@ async function refreshStatus() {
   } catch (e) {
     status = { online: false, owned: false, address: '', error: String(e) };
   }
-  if (status.online) starting = false;
-  if (starting && !status.owned) starting = false; // process ended before it answered
+  // a server this launcher started that is not answering yet is still starting (also covers auto-start)
+  const starting = !!(status.owned && !status.online);
   const el = $('#srv-status');
   const state = status.online ? 'online' : starting ? 'starting' : 'offline';
   el.className = 'status ' + state;
@@ -78,7 +84,6 @@ function addLine(line) {
 $('#btn-start').onclick = async () => {
   try {
     await invoke('server_start');
-    starting = true;
     refreshStatus();
   } catch (e) { toast(e, 'error'); }
 };
@@ -99,7 +104,7 @@ async function loadProfiles() {
     box.innerHTML = '';
     const e = document.createElement('div');
     e.className = 'card empty';
-    e.textContent = 'Start the SPT server to see your profiles.';
+    e.textContent = status && status.owned ? 'The SPT server is starting. Your profiles appear when the Server page shows Online.' : 'Start the SPT server to see your profiles.';
     box.appendChild(e);
     $('#playbar').hidden = true;
     return;
@@ -178,11 +183,12 @@ async function loadSettings() {
   const s = await invoke('get_settings');
   $('#set-path').value = s.game_path || '';
   $('#set-minimize').checked = !!s.minimize_on_launch;
+  $('#set-autostart').checked = s.auto_start_server !== false;
 }
 
 $('#btn-save').onclick = async () => {
   const current = await invoke('get_settings');
-  const settings = { ...current, game_path: $('#set-path').value.trim(), minimize_on_launch: $('#set-minimize').checked };
+  const settings = { ...current, game_path: $('#set-path').value.trim(), minimize_on_launch: $('#set-minimize').checked, auto_start_server: $('#set-autostart').checked };
   try {
     await invoke('save_settings', { settings });
     toast('Settings saved.', 'ok');

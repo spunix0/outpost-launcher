@@ -9,11 +9,13 @@ pub struct Settings {
     pub game_path: String,
     pub minimize_on_launch: bool,
     pub last_profile: Option<String>,
+    /// Start the SPT server when the launcher opens (never stops one that is already running).
+    pub auto_start_server: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { game_path: detect_game_path(), minimize_on_launch: true, last_profile: None }
+        Settings { game_path: detect_game_path(), minimize_on_launch: true, last_profile: None, auto_start_server: true }
     }
 }
 
